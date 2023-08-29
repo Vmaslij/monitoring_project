@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{intfc}}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"
+            integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA=="
+            crossorigin="anonymous"></script>
+</head>
+<body>
+    <header class="sticky">
+        <button id="stop_button" class="button_stop">
+                Стоп
+        </button>
+        <button class="button_stop">
+            <a class="charts_button" href="{{url_for('charts')}}">Вывести график</a>
+        </button>
+        <button class="button_stop" onclick="saveFile()">
+            Скачать файл
+        </button>
+        <button class="button_stop" onclick="filter()">
+            Отфильтровать
+        </button>
+        <a href="" id="linkForSavingFile" style="display: none"> </a>
+    </header>
+    <div align="center">
+        <table border="1" id="Monitor">
+        <thead>
+            <tr>
+                {%for item in items%}
+                    <th> {{item}} </th>
+                {%endfor%}
+            </tr>
+            <tr>
+                <th></th>
+                <th></th>
+                <th>
+                    <form>
+                        <input id="fprotocol" type="text" name="protocol_filter">
+                    </form>
+                </th>
+                <th>
+                    <form>
+                        <input id="fmacs" type="text" name="macs_filter">
+                    </form>
+                </th>
+                <th>
+                    <form>
+                        <input id="fmacr" type="text" name="macr_filter">
+                    </form>
+                </th>
+                <th></th>
+                <th>
+                    <form>
+                        <input id="fports" type="number" name="ports_filter">
+                    </form>
+                </th>
+                <th>
+                    <form>
+                        <input id="fips" type="text" name="ips_filter">
+                    </form>
+                </th>
+                <th>
+                    <form>
+                        <input id="fportr" type="number" name="portr_filter">
+                    </form>
+                </th>
+                <th>
+                    <form>
+                        <input id="fipr" type="text" name="ipr_filter">
+                    </form>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            {%for p in packages%}
+                <tr>
+                    {%for i in p.values()%}
+                        <td> {{i}} </td>
+                    {%endfor%}
+                </tr>
+            {%endfor%}
+        </tbody>
+        <tfoot id="bottom"></tfoot>
+    </table>
+    </div>
+
+
+    <script type="text/javascript" charset="utf-8">
+        var socket = io();
+
+
+        var scroll = true;
+        var tbodyRef = document.getElementById('Monitor').getElementsByTagName('tbody')[0];
+        var newRow;
+        var newCell;
+        var newText;
+
+        let regArr = [];
+        let indexArr = [];
+
+        //     todo: в функцию по приему данных надо добавить сверку элементов с регулярным выражением
+
+        socket.on('send data', function (result){
+            var myresult = JSON.parse(result)
+
+            for (let myresultElement of myresult) {
+                newRow = tbodyRef.insertRow(-1);
+                for (let myresultElementKey in myresultElement) {
+                    newCell = newRow.insertCell();
+                    newText = document.createTextNode(myresultElement[myresultElementKey]);
+                    newCell.appendChild(newText);
+                }
+                window.addEventListener('onscroll',
+                    (event) => {
+                        scroll = false;
+                    }
+                );
+                // if (scroll) {
+                //     document.getElementById('bottom').scrollIntoView();
+                // }
+            }
+        });
+
+        socket.on('save file', function (result){
+            var a = document.getElementById('linkForSavingFile');
+            var file = new Blob([result],{
+                type: 'plain/text'
+            });
+            var today = new Date();
+            var now = today.toLocaleString();
+
+            a.href = URL.createObjectURL(file);
+            a.download = now + '.txt';
+            a.click();
+        });
+
+        function saveFile() {
+            socket.emit('download file')
+        }
+
+        function filter() {
+            var protocol = document.getElementById("fprotocol").value;
+            var macs = document.getElementById("fmacs").value;
+            var macr = document.getElementById("fmacr").value;
+            var ports = document.getElementById("fports").value;
+            var ips = document.getElementById("fips").value;
+            var portr = document.getElementById("fportr").value;
+            var ipr = document.getElementById("fipr").value;
+
+            regArr = []
+            indexArr = []
+            if (protocol !== '') {
+                regArr.push(new RegExp(protocol));
+                indexArr.push(2);
+            }
+            if (macs !== '') {
+                regArr.push(new RegExp(macs));
+                indexArr.push(3);
+            }
+            if (macr !== '') {
+                regArr.push(new RegExp(macr));
+                indexArr.push(4);
+            }
+            if (ports !== '') {
+                regArr.push(new RegExp(ports));
+                indexArr.push(6);
+            }
+            if (ips !== '') {
+                regArr.push(new RegExp(ips));
+                indexArr.push(7);
+            }
+            if (portr !== '') {
+                regArr.push(new RegExp(portr));
+                indexArr.push(8);
+            }
+            if (ipr !== '') {
+                regArr.push(new RegExp(ipr));
+                indexArr.push(9);
+            }
+            console.log(indexArr);
+            console.log(regArr);
+
+            if (regArr !== []) {
+                let j = 0;
+                let rows = tbodyRef.getElementsByTagName('tr');
+
+                for (j = 0; j < rows.length; j++) {
+                    let cells = rows[j].getElementsByTagName('td');
+
+                    let i = 0;
+                    for (let indexArrElement of indexArr) {
+                        console.log(cells[indexArrElement].innerText);
+                        console.log(cells[indexArrElement].innerText.match(regArr[i]), j);
+                        if (cells[indexArrElement].innerText.match(regArr[i]) === null) {
+                            tbodyRef.deleteRow(j);
+                            console.log(j);
+                            console.log(indexArrElement);
+                            j = j - 1;
+                            break;
+                        }
+                        i++;
+                    }
+                }
+            }
+
+        }
+
+        // window.addEventListener('onscroll',
+        //     (event) => {
+        //         scroll = false;
+        //     }
+        // );
+
+        let timeoutId = setInterval(function() {
+            socket.emit('update data')
+        }, 500);
+
+        document.getElementById('stop_button')
+            .addEventListener(
+                'click',
+                (event) => {
+                    clearInterval(timeoutId);
+                    socket.emit('stop');
+                }
+            );
+
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css?family=Roboto');
+        @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.9.0/css/all.min.css');
+
+        .sticky {
+            position: sticky;
+            background-color: white;
+            border-bottom: 2px inset #003399;
+            height: 5vh;
+            display: flex;
+            align-items: flex-start;
+            top: 0;
+        }
+
+        table {
+            font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
+            font-size: 14px;
+            background: white;
+            max-width: 70%;
+            width: 70%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            font-weight: normal;
+            color: #039;
+            border-bottom: 2px solid #6678b1;
+            padding: 10px 8px;
+        }
+
+        td {
+            border-bottom: 1px solid #ccc;
+            color: #669;
+            padding: 9px 8px;
+            transition: .3s linear;
+        }
+
+        tr:hover td {
+            color: #2974ff;
+        }
+
+        .button_stop {
+            border: none;
+            outline: none;
+            display: block;
+            text-align: center;
+            text-decoration: none;
+            margin: 2px auto;
+            cursor: pointer;
+            font-size: 12px;
+            top: 5%;
+            bottom: 5%;
+            position: relative;
+            font-family: Roboto, Verdana, Tahoma, sans;
+            padding: 10px 14px;
+            border-radius: 80px;
+            color: #fff;
+        }
+
+        .button i {
+            margin-right: 4px;
+        }
+
+        .button_stop + .button_stop {
+            margin-left: 6px;
+        }
+
+        .button_stop {
+            background: #2196F3;
+        }
+
+        .button_stop:hover {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .button_stop:hover {
+            background: #39a1f4;
+        }
+
+        .button_stop:active {
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .button_stop:active {
+            background: #0d8aee;
+        }
+
+        .charts_button {
+            text-decoration: none;
+            color: white;
+        }
+
+
+    </style>
+</body>
+</html>

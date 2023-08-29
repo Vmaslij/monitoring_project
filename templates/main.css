@@ -1,0 +1,9 @@
+ol,
+ul {
+    list-style: none;
+}
+
+.sticky {
+    position: sticky;
+    top: 0;
+}

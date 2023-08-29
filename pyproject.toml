@@ -1,0 +1,14 @@
+[build-system]
+requires = ["sip >=5, <6"]
+build-backend = "sipbuild.api"
+
+[tool.sip.metadata]
+name = "pyanalizatorcpp"
+version = "4.0"
+license = "MIT"
+
+[tool.sip.bindings.pyanalizatorcpp]
+headers = ["analizator.h"]
+libraries = ["_analizator"]
+include-dirs = ["analizator"]
+library-dirs = ["analizator/bin"]

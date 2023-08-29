@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"
+            integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA=="
+            crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/charts/loader.js"></script>
+    <meta charset="UTF-8">
+    <title>Charts</title>
+</head>
+<body>
+     <header class="sticky">
+        <button id="stop_button" class="button_stop">
+                Стоп
+        </button>
+    </header>
+
+    <div align="center" id="myPieChart" style="height: 940px">
+
+    </div>
+
+     <div align="center" id="linearChart" style="height: 940px">
+
+     </div>
+
+     <div align="center" id="IPconnectionsChart" style="height: 940px">
+
+     </div>
+
+     <div align="center" id="protocolChart" style="height: 940px">
+
+     </div>
+
+     <div align="center" id="inOutChart" style="height: 940px">
+
+     </div>
+
+    <script>
+        google.charts.load('current', {packages: ['corechart']});
+        google.charts.setOnLoadCallback(drawChart);
+
+
+        var socket = io();
+
+        var options = {
+                title: 'Количество пакетов прошедших через интерфейс за секунду',
+                legend: { position: 'right' },
+                hAxis: {
+                    title: 'Время, сек'
+                },
+                vAxis: {
+                    title: 'Число пакетов, 1/с'
+                }
+            };
+
+        var IPconnections_options = {
+                title: 'Количество активных соединений в секунду',
+                legend: { position: 'right' },
+                hAxis: {
+                    title: 'Время, сек'
+                },
+                vAxis: {
+                    title: 'Число соединений'
+                }
+            };
+
+        var inOut_options = {
+                title: 'Количество входящего и исходящего трафика интерфейса',
+                legend: { position: 'right' },
+                hAxis: {
+                    title: 'Время, сек'
+                },
+                vAxis: {
+                    title: 'Объем трафика, байт/с'
+                }
+            };
+
+        var protocols_options = {
+                title: 'Количество пакетов определенного протокола за секунду',
+                legend: { position: 'right' },
+                hAxis: {
+                    title: 'Время, сек'
+                },
+                vAxis: {
+                    title: 'Число пакетов, 1/с'
+                }
+            };
+
+        function drawChart() {
+            window.linear = new google.visualization.DataTable();
+
+            linear.addColumn('number', 'Time, sec');
+            linear.addColumn('number', 'Пакетов в секунду, 1/с');
+
+            // Define the chart to be drawn.
+            window.data = new google.visualization.DataTable();
+            data.addColumn('string', 'Element');
+            data.addColumn('number', 'Количество пакетов');
+            data.addRows([
+                ['0-64 байт', 0],
+                ['65-127 байт', 0],
+                ['128-255 байт', 0],
+                ['256-511 байт', 0],
+                ['512-1023 байт', 0],
+                ['>1024 байт', 0],
+            ]);
+
+            // Instantiate and draw the chart.
+            window.chart = new google.visualization.BarChart(document.getElementById('myPieChart'));
+            chart.draw(data, {'legend': 'top', 'width': 1024, 'height': 712,
+                Colors: ['#0048ff', '#e100ff', '#05b5f5',
+                    '#ff0047', '#27a932', '#6e0eff']});
+
+            window.linear_chart = new google.visualization.LineChart(document.getElementById('linearChart'));
+            linear_chart.draw(linear, options);
+
+
+            window.IPconnections = new google.visualization.DataTable();
+
+            IPconnections.addColumn('number', 'Time, sec');
+            IPconnections.addColumn('number', 'Соединений в секунду, 1/с');
+
+            window.IPconnections_chart = new google.visualization.LineChart(document.getElementById('IPconnectionsChart'));
+            IPconnections_chart.draw(IPconnections, IPconnections_options);
+
+
+            window.inOut = new google.visualization.DataTable();
+
+            inOut.addColumn('number', 'Time, sec');
+            inOut.addColumn('number', 'Входящий трафик, байт');
+            inOut.addColumn('number', 'Исходящий трафик, байт');
+
+            window.inOut_chart = new google.visualization.LineChart(document.getElementById('inOutChart'));
+            inOut_chart.draw(inOut, inOut_options);
+
+
+            window.protocols = new google.visualization.DataTable();
+
+            protocols.addColumn('number', 'Time, sec');
+            protocols.addColumn('number', 'ICMP, 1/c');
+            protocols.addColumn('number', 'TCP, 1/c');
+            protocols.addColumn('number', 'UDP, 1/c');
+            protocols.addColumn('number', 'HTTPS, 1/c');
+            protocols.addColumn('number', 'DNS, 1/c');
+
+            window.protocols_chart = new google.visualization.LineChart(document.getElementById('protocolChart'));
+            protocols_chart.draw(protocols, protocols_options);
+
+            }
+
+
+
+            let timeoutId = setInterval(function() {
+                    socket.emit('update data')
+            }, 500);
+
+            var len = [0, 0, 0, 0, 0, 0];
+            var last_packet = 0;
+            var packet_time = 0;
+            var count = 0;
+            var protocol_count = [0, 0, 0, 0, 0];
+            var in_count = 0;
+            var out_count = 0;
+            var ip_number = '10.0.2.15';
+            var connections_count = false;
+            var activ_connect = [];
+
+            function div(val, by) {
+                return (val - val % by) / by;
+            }
+
+            socket.on('send data', function (result) {
+            var myresult = JSON.parse(result)
+
+
+                for (let myresultElement of myresult) {
+                   if (myresultElement['Length'] <= 64){
+                       len[0] = len[0] + 1;
+                   }
+                   else if (myresultElement['Length'] <= 127){
+                       len[1] = len[1] + 1;
+                   }
+                   else if (myresultElement['Length'] <= 255){
+                       len[2] = len[2] + 1;
+                   }
+                   else if (myresultElement['Length'] <= 511){
+                       len[3] = len[3] + 1;
+                   }
+                   else if (myresultElement['Length'] <= 1023){
+                       len[4] = len[4] + 1;
+                   }
+                   else {
+                       len[5] = len[5] + 1;
+                   }
+
+                   packet_time = div(myresultElement['Time'], 1000);
+                   connections_count = true;
+
+                   if (packet_time === last_packet) {
+                       count++;
+                       if (myresultElement['Protocol'] === 'ICMP') {
+                           protocol_count[0]++;
+                       } else if (myresultElement['Protocol'] === 'TCP') {
+                           protocol_count[1]++;
+                       } else if (myresultElement['Protocol'] === 'UDP') {
+                           protocol_count[2]++;
+                       } else if (myresultElement['Protocol'] === 'HTTPS') {
+                           protocol_count[3]++;
+                       } else if (myresultElement['Protocol'] === 'DNS') {
+                           protocol_count[4]++;
+                       }
+
+                       if (myresultElement['IP_sender'] === ip_number) {
+                           out_count = out_count + Number(myresultElement['Length']);
+                       } else if (myresultElement['IP_receiver'] === ip_number) {
+                           in_count = in_count + Number(myresultElement['Length']);
+                       }
+
+                       for (let activConnectElement of activ_connect) {
+                           if (activConnectElement === myresultElement['IP_receiver']) {
+                               connections_count = false;
+                           }
+                       }
+                       if (connections_count) {
+                           activ_connect.push(myresultElement['IP_receiver']);
+                       }
+
+                   }
+                   else if ((packet_time - last_packet) === 1) {
+                       linear.addRows([[last_packet, count]]);
+                       console.log(last_packet, packet_time, in_count, out_count);
+                       count = 1;
+
+                       protocols.addRows([[last_packet, protocol_count[0], protocol_count[1], protocol_count[2],
+                           protocol_count[3], protocol_count[4]]]);
+                       for (let i = 0; i < protocol_count.length; i++) {
+                           protocol_count[i] = 0;
+                       }
+
+                       inOut.addRows([[last_packet, in_count, out_count]]);
+                       in_count = 0;
+                       out_count = 0;
+
+                       IPconnections.addRows([[last_packet, activ_connect.length]]);
+                       activ_connect = [ip_number];
+
+                       last_packet = packet_time;
+
+                   }
+                   else {
+                       linear.addRows([[last_packet, count]]);
+                       console.log(last_packet, packet_time, in_count, out_count, 2);
+                       // count = 0;
+                       // for (let i = last_packet + 1; i < packet_time; i++) {
+                       //     linear.addRows([[last_packet, count]]);
+                       // }
+                       count = 1;
+
+                       protocols.addRows([[last_packet, protocol_count[0], protocol_count[1], protocol_count[2],
+                           protocol_count[3], protocol_count[4]]]);
+                       for (let i = 0; i < protocol_count.length; i++) {
+                           protocol_count[i] = 0;
+                       }
+
+                       inOut.addRows([[last_packet, in_count, out_count]]);
+                       in_count = 0;
+                       out_count = 0;
+
+                       IPconnections.addRows([[last_packet, activ_connect.length]]);
+                       activ_connect = [ip_number];
+
+                       last_packet = packet_time;
+                   }
+
+                }
+
+                for (let i = 0; i < 6; i++) {
+                    data.setCell(i, 1, len[i]);
+                }
+                chart.draw(data, {'legend': 'top', 'width': 1024, 'height': 712,
+                Colors: ['#0048ff', '#e100ff', '#05b5f5',
+                    '#ff0047', '#27a932', '#6e0eff']});
+
+                linear_chart.draw(linear, options);
+                protocols_chart.draw(protocols, protocols_options);
+                inOut_chart.draw(inOut, inOut_options);
+                IPconnections_chart.draw(IPconnections, IPconnections_options);
+
+            });
+
+            document.getElementById('stop_button')
+            .addEventListener(
+                'click',
+                (event) => {
+                    clearInterval(timeoutId);
+                    socket.emit('stop');
+                }
+            );
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css?family=Roboto');
+        @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.9.0/css/all.min.css');
+
+        .sticky {
+            position: sticky;
+            background-color: white;
+            border-bottom: 2px inset #003399;
+            height: 5vh;
+            top: 0;
+        }
+
+        .button_stop {
+            border: none;
+            outline: none;
+            display: block;
+            text-align: center;
+            text-decoration: none;
+            margin: 2px auto;
+            cursor: pointer;
+            font-size: 12px;
+            top: 5%;
+            bottom: 5%;
+            position: relative;
+            font-family: Roboto, Verdana, Tahoma, sans;
+            padding: 10px 14px;
+            border-radius: 80px;
+            color: #fff;
+        }
+
+         .button i {
+            margin-right: 4px;
+        }
+
+        .button_stop + .button_stop {
+            margin-left: 6px;
+        }
+
+        .button_stop {
+            background: #2196F3;
+        }
+
+        .button_stop:hover {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .button_stop:hover {
+            background: #39a1f4;
+        }
+
+        .button_stop:active {
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .button_stop:active {
+            background: #0d8aee;
+        }
+    </style>
+
+</body>
+</html>

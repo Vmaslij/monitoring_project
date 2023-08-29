@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Analizator</title>
+</head>
+<body>
+    <div align="center">
+        <header class="head">Выберите интерфейс</header>
+        <ul class="zebra">
+            {%for i in intfcs%}
+                <li>
+                    <form action="" method="post">
+                        <input class="interface" type="submit" name={{i}} value={{i}}>
+                    </form>
+                </li>
+            {%endfor%}
+        </ul>
+    </div>
+
+    <style>
+        ol,
+        ul {
+            list-style: none;
+        }
+
+        .head {
+            font-family: "Lucida Sans";
+            font-size: 35px;
+        }
+
+        .zebra {
+            list-style: none;
+            padding: 0;
+            font-family: "Lucida Sans";
+        }
+
+        .zebra li {
+            padding: 10px;
+        }
+
+        .zebra li:nth-child(odd) {
+            width: 40%;
+            background: #E1F1FF;
+        }
+
+        .zebra li:nth-child(even) {
+            background: white;
+        }
+
+        .interface {
+            border: none;
+            outline: none;
+            display: block;
+            text-align: center;
+            text-decoration: none;
+            margin: 2px auto;
+            cursor: pointer;
+            top: 4px;
+            position: relative;
+            font-family: Roboto, Verdana, Tahoma, sans;
+            padding: 10px 14px;
+            border-radius: 80px;
+            background: transparent;
+            font-size: 16px;
+            transition: all .5s;
+            color: #4289ec;
+        }
+
+        .button i {
+            margin-right: 4px;
+        }
+
+        .interface + .interface {
+            margin-left: 6px;
+        }
+
+        .interface:hover {
+            text-shadow:
+            1px -1px 1px #a2b7e1;
+            color: #2974ff;
+        }
+
+        .interface:active {
+            text-shadow:
+            1px -1px 1px #a2b7e1;
+            color: #2974ff;
+        }
+
+    </style>
+
+</body>
+
+
+</html>
